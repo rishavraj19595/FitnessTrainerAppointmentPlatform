@@ -1,0 +1,449 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  CLIENT
+  TRAINER
+  ADMIN
+}
+
+enum VerificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum DifficultyLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+}
+
+enum PackagePurchaseStatus {
+  ACTIVE
+  EXPIRED
+  COMPLETED
+  CANCELLED
+}
+
+enum BookingSessionType {
+  CONSULTATION
+  PACKAGE_SESSION
+}
+
+enum BookingStatus {
+  PENDING
+  CONFIRMED
+  COMPLETED
+  CANCELLED
+  REJECTED
+  NO_SHOW
+}
+
+enum PaymentStatus {
+  PENDING
+  SUCCESS
+  FAILED
+  REFUNDED
+}
+
+enum WorkoutPlanStatus {
+  ACTIVE
+  COMPLETED
+  ARCHIVED
+}
+
+enum AttendanceStatus {
+  PRESENT
+  ABSENT
+  NO_SHOW
+}
+
+enum NotificationType {
+  BOOKING
+  PAYMENT
+  WORKOUT
+  PROGRESS
+  ATTENDANCE
+  VERIFICATION
+  SYSTEM
+}
+
+model User {
+  id            String    @id @default(cuid())
+  name          String
+  email         String    @unique
+  password      String?
+  role          Role      @default(CLIENT)
+  image         String?
+  phone         String?
+  bio           String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  // Relationships
+  trainerProfile       TrainerProfile?
+  clientBookings       Booking[]             @relation("ClientBookings")
+  trainerBookings      Booking[]             @relation("TrainerBookings")
+  packagePurchases     PackagePurchase[]     @relation("ClientPackages")
+  clientProgress       ProgressEntry[]       @relation("ClientProgress")
+  clientWorkouts       WorkoutPlan[]         @relation("ClientWorkouts")
+  trainerWorkouts      WorkoutPlan[]         @relation("TrainerWorkouts")
+  workoutCompletions   WorkoutCompletion[]
+  clientAttendance     Attendance[]          @relation("ClientAttendance")
+  trainerAttendance    Attendance[]          @relation("TrainerAttendance")
+  reviewsGiven         Review[]              @relation("ReviewsGiven")
+  payments             Payment[]             @relation("UserPayments")
+  notifications        Notification[]
+  sentMessages         Message[]             @relation("SentMessages")
+  receivedMessages     Message[]             @relation("ReceivedMessages")
+  auditLogs            AuditLog[]            @relation("AdminLogs")
+
+  @@index([email])
+  @@index([role])
+}
+
+model TrainerProfile {
+  id                 String             @id @default(cuid())
+  userId             String             @unique
+  user               User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+  headline           String?
+  bio                String?
+  experienceYears    Int                @default(1)
+  consultationPrice  Float              @default(50)
+  languages          String[]           @default(["English"])
+  rating             Float              @default(5.0)
+  reviewCount        Int                @default(0)
+  isVerified         Boolean            @default(false)
+  verificationStatus VerificationStatus @default(PENDING)
+  profileImage       String?
+  bannerImage        String?
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  specializations    TrainerSpecialization[]
+  certifications     TrainerCertification[]
+  verifications      TrainerVerification[]
+  packages           WorkoutPackage[]
+  availabilities     TrainerAvailability[]
+  reviews            Review[]           @relation("TrainerReviews")
+
+  @@index([userId])
+  @@index([isVerified])
+  @@index([rating])
+}
+
+model TrainerVerification {
+  id               String             @id @default(cuid())
+  trainerProfileId String
+  trainerProfile   TrainerProfile     @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  documentUrl      String
+  documentType     String
+  status           VerificationStatus @default(PENDING)
+  reviewerNotes    String?
+  submittedAt      DateTime           @default(now())
+  reviewedAt       DateTime?
+
+  @@index([trainerProfileId])
+  @@index([status])
+}
+
+model TrainerSpecialization {
+  id               String         @id @default(cuid())
+  trainerProfileId String
+  trainerProfile   TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  name             String
+
+  @@unique([trainerProfileId, name])
+}
+
+model TrainerCertification {
+  id               String         @id @default(cuid())
+  trainerProfileId String
+  trainerProfile   TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  name             String
+  issuingOrg       String
+  year             Int
+  certificateUrl   String?
+
+  @@index([trainerProfileId])
+}
+
+model WorkoutPackage {
+  id               String          @id @default(cuid())
+  trainerProfileId String
+  trainerProfile   TrainerProfile  @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  title            String
+  description      String
+  coverImage       String?
+  durationWeeks    Int             @default(4)
+  sessionCount     Int             @default(8)
+  price            Float
+  trainingType     String          @default("Personal Training")
+  difficultyLevel  DifficultyLevel @default(BEGINNER)
+  includedServices String[]        @default([])
+  targetGoal       String
+  isActive         Boolean         @default(true)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  purchases        PackagePurchase[]
+  payments         Payment[]
+
+  @@index([trainerProfileId])
+  @@index([isActive])
+}
+
+model PackagePurchase {
+  id                String                @id @default(cuid())
+  userId            String
+  user              User                  @relation("ClientPackages", fields: [userId], references: [id], onDelete: Cascade)
+  packageId         String
+  package           WorkoutPackage        @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  purchasePrice     Float
+  totalSessions     Int
+  remainingSessions Int
+  status            PackagePurchaseStatus @default(ACTIVE)
+  expiresAt         DateTime?
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+
+  bookings          Booking[]
+
+  @@index([userId])
+  @@index([packageId])
+  @@index([status])
+}
+
+model TrainerAvailability {
+  id                  String         @id @default(cuid())
+  trainerProfileId    String
+  trainerProfile      TrainerProfile @relation(fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  dayOfWeek           Int            // 0 = Sunday, 1 = Monday, ... 6 = Saturday
+  startTime           String         // "09:00"
+  endTime             String         // "17:00"
+  slotDurationMinutes Int            @default(60)
+  isAvailable         Boolean        @default(true)
+
+  @@index([trainerProfileId, dayOfWeek])
+}
+
+model Booking {
+  id                 String             @id @default(cuid())
+  clientId           String
+  client             User               @relation("ClientBookings", fields: [clientId], references: [id], onDelete: Cascade)
+  trainerId          String
+  trainer            User               @relation("TrainerBookings", fields: [trainerId], references: [id], onDelete: Cascade)
+  packagePurchaseId  String?
+  packagePurchase    PackagePurchase?   @relation(fields: [packagePurchaseId], references: [id], onDelete: SetNull)
+  date               DateTime           // Date of the session (YYYY-MM-DD)
+  startTime          String             // "10:00"
+  endTime            String             // "11:00"
+  sessionType        BookingSessionType @default(CONSULTATION)
+  status             BookingStatus      @default(CONFIRMED)
+  cancellationReason String?
+  clientNotes        String?
+  trainerNotes       String?
+  amount             Float              @default(0)
+  createdAt          DateTime           @default(now())
+  updatedAt          DateTime           @updatedAt
+
+  attendance         Attendance?
+  payment            Payment?
+
+  @@index([clientId])
+  @@index([trainerId])
+  @@index([date])
+  @@index([status])
+}
+
+model Payment {
+  id                String         @id @default(cuid())
+  userId            String
+  user              User           @relation("UserPayments", fields: [userId], references: [id], onDelete: Cascade)
+  packageId         String?
+  package           WorkoutPackage? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  bookingId         String?        @unique
+  booking           Booking?       @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+  amount            Float
+  currency          String         @default("INR")
+  paymentMethod     String         @default("RAZORPAY")
+  razorpayOrderId   String?        @unique
+  razorpayPaymentId String?        @unique
+  razorpaySignature String?
+  status            PaymentStatus  @default(PENDING)
+  createdAt         DateTime       @default(now())
+  updatedAt         DateTime       @updatedAt
+
+  @@index([userId])
+  @@index([status])
+}
+
+model WorkoutPlan {
+  id          String            @id @default(cuid())
+  trainerId   String
+  trainer     User              @relation("TrainerWorkouts", fields: [trainerId], references: [id], onDelete: Cascade)
+  clientId    String
+  client      User              @relation("ClientWorkouts", fields: [clientId], references: [id], onDelete: Cascade)
+  title       String
+  description String
+  targetGoal  String
+  startDate   DateTime          @default(now())
+  endDate     DateTime?
+  status      WorkoutPlanStatus @default(ACTIVE)
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+
+  exercises   WorkoutExercise[]
+  completions WorkoutCompletion[]
+
+  @@index([trainerId])
+  @@index([clientId])
+  @@index([status])
+}
+
+model WorkoutExercise {
+  id              String      @id @default(cuid())
+  workoutPlanId   String
+  workoutPlan     WorkoutPlan @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  dayOfWeek       Int         // 1 = Monday, 2 = Tuesday, etc.
+  exerciseName    String
+  sets            Int         @default(3)
+  reps            Int         @default(10)
+  weightKg        Float?
+  durationMinutes Int?
+  restSeconds     Int         @default(60)
+  notes           String?
+  orderIndex      Int         @default(0)
+
+  @@index([workoutPlanId, dayOfWeek])
+}
+
+model WorkoutCompletion {
+  id            String      @id @default(cuid())
+  workoutPlanId String
+  workoutPlan   WorkoutPlan @relation(fields: [workoutPlanId], references: [id], onDelete: Cascade)
+  clientId      String
+  client        User        @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  completedDate DateTime    @default(now())
+  notes         String?
+  isCompleted   Boolean     @default(true)
+
+  @@index([workoutPlanId])
+  @@index([clientId])
+  @@index([completedDate])
+}
+
+model ProgressEntry {
+  id                 String   @id @default(cuid())
+  clientId           String
+  client             User     @relation("ClientProgress", fields: [clientId], references: [id], onDelete: Cascade)
+  date               DateTime @default(now())
+  weightKg           Float
+  chestCm            Float?
+  waistCm            Float?
+  hipsCm             Float?
+  armsCm             Float?
+  thighsCm           Float?
+  bodyFatPercentage  Float?
+  strengthNotes      String?
+  personalNotes      String?
+  photoUrl           String?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  @@index([clientId])
+  @@index([date])
+}
+
+model Attendance {
+  id         String           @id @default(cuid())
+  bookingId  String           @unique
+  booking    Booking          @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  trainerId  String
+  trainer    User             @relation("TrainerAttendance", fields: [trainerId], references: [id], onDelete: Cascade)
+  clientId   String
+  client     User             @relation("ClientAttendance", fields: [clientId], references: [id], onDelete: Cascade)
+  date       DateTime
+  status     AttendanceStatus @default(PRESENT)
+  notes      String?
+  recordedAt DateTime         @default(now())
+
+  @@index([trainerId])
+  @@index([clientId])
+  @@index([date])
+}
+
+model Review {
+  id               String         @id @default(cuid())
+  clientId         String
+  client           User           @relation("ReviewsGiven", fields: [clientId], references: [id], onDelete: Cascade)
+  trainerProfileId String
+  trainerProfile   TrainerProfile @relation("TrainerReviews", fields: [trainerProfileId], references: [id], onDelete: Cascade)
+  rating           Int            @default(5)
+  comment          String
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+
+  @@index([trainerProfileId])
+  @@index([clientId])
+}
+
+model Notification {
+  id        String           @id @default(cuid())
+  userId    String
+  user      User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String
+  type      NotificationType @default(SYSTEM)
+  link      String?
+  isRead    Boolean          @default(false)
+  createdAt DateTime         @default(now())
+
+  @@index([userId])
+  @@index([isRead])
+}
+
+model Message {
+  id         String   @id @default(cuid())
+  senderId   String
+  sender     User     @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+  receiverId String
+  receiver   User     @relation("ReceivedMessages", fields: [receiverId], references: [id], onDelete: Cascade)
+  content    String
+  isRead     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([senderId, receiverId])
+}
+
+model PlatformSettings {
+  id                   String   @id @default("default")
+  commissionPercentage Float    @default(15.0) // 15% platform fee
+  platformFeeFixed     Float    @default(0.0)
+  maintenanceMode      Boolean  @default(false)
+  contactEmail         String   @default("support@fitpulse.com")
+  supportPhone         String   @default("+1-800-FIT-PULSE")
+  createdAt            DateTime @default(now())
+  updatedAt            DateTime @updatedAt
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  adminId    String
+  admin      User     @relation("AdminLogs", fields: [adminId], references: [id], onDelete: Cascade)
+  action     String
+  targetType String
+  targetId   String?
+  details    String?
+  createdAt  DateTime @default(now())
+
+  @@index([adminId])
+  @@index([action])
+}

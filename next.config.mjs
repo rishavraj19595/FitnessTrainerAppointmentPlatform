@@ -9,6 +9,7 @@ const nextConfig = {
     ],
   },
   experimental: {
+    serverComponentsExternalPackages: ['mongoose', 'bcryptjs'],
     serverActions: {
       bodySizeLimit: '10mb',
     },
@@ -16,3 +17,4 @@ const nextConfig = {
 };
 
 export default nextConfig;
+

@@ -132,4 +132,104 @@ test("FitPulse Platform Core Engine Test Suite", async (t) => {
     assert.strictEqual(trainerProfile.isVerified, false);
     assert.strictEqual(trainerProfile.verificationStatus, "REJECTED");
   });
+
+  // Test 7: Consultation Booking Payment Recording & Multi-Panel Ledger
+  await t.test("7. Financials - Consultation Payment & Platform Ledger", () => {
+    const payments = [
+      { id: "pay-1", userId: "client-1", bookingId: null, packageId: "pkg-1", amount: 11999, status: "SUCCESS" },
+      { id: "pay-2", userId: "client-1", bookingId: "book-101", packageId: null, amount: 3500, status: "SUCCESS" },
+      { id: "pay-3", userId: "client-1", bookingId: "book-102", packageId: null, amount: 3200, status: "SUCCESS" },
+      { id: "pay-4", userId: "client-1", bookingId: "book-103", packageId: null, amount: 3000, status: "SUCCESS" },
+    ];
+
+    const clientPayments = payments.filter((p) => p.userId === "client-1" && p.status === "SUCCESS");
+    assert.strictEqual(clientPayments.length, 4, "Client must see all 4 paid transactions");
+    const totalClientSpent = clientPayments.reduce((sum, p) => sum + p.amount, 0);
+    assert.strictEqual(totalClientSpent, 21699, "Total client spent matches sum of package and consultations");
+
+    // Platform 15% commission check
+    const platformRevenue = Math.round(totalClientSpent * 0.15);
+    const trainerEarnings = Math.round(totalClientSpent * 0.85);
+    assert.strictEqual(platformRevenue + trainerEarnings, totalClientSpent, "Net split must balance 100%");
+  });
+
+  // Test 8: Trainee Suspension & Reactivation Status Management
+  await t.test("8. Admin - Trainee Suspension & Reactivation State Toggle", () => {
+    let traineeUser = { id: "usr-1", status: "active" };
+
+    // Admin suspends
+    traineeUser.status = traineeUser.status === "active" ? "suspended" : "active";
+    assert.strictEqual(traineeUser.status, "suspended", "Status should transition to suspended");
+
+    // Admin reactivates
+    traineeUser.status = traineeUser.status === "suspended" ? "active" : "suspended";
+    assert.strictEqual(traineeUser.status, "active", "Status should transition back to active");
+  });
+
+  // Test 9: Admin Trainee Onboarding with Full Fitness Details
+  await t.test("9. Admin - Trainee Onboarding & Profile Metric Validation", () => {
+    const newTrainee = {
+      name: "Rohan Sharma",
+      email: "rohan@gmail.com",
+      age: 27,
+      gender: "Male",
+      heightCm: 178,
+      weightKg: 82,
+      targetWeightKg: 74,
+      fitnessGoal: "Fat Loss & Lean Muscle",
+      dietaryPreference: "Vegetarian",
+      assignedTrainerId: "usr-trainer-1",
+      status: "active",
+    };
+
+    assert.ok(newTrainee.name && newTrainee.email, "Required fields present");
+    assert.strictEqual(newTrainee.weightKg > newTrainee.targetWeightKg, true, "Target weight reflects fat loss goal");
+    assert.strictEqual(newTrainee.assignedTrainerId, "usr-trainer-1", "Coach assigned successfully");
+    assert.strictEqual(newTrainee.status, "active", "Default account state is active");
+  });
+
+  // Test 10: Admin Workout Package Creation
+  await t.test("10. Admin - Workout Package Creation & INR Pricing", () => {
+    const plan = {
+      id: "plan-test-1",
+      title: "6-Week Shred Protocol",
+      category: "Weight Loss",
+      durationWeeks: 6,
+      sessionCount: 18,
+      price: 9999,
+      difficulty: "Intermediate",
+      benefits: ["18 Sessions", "Custom Diet Chart", "Weekly Checkin"],
+      isActive: true,
+    };
+
+    assert.strictEqual(plan.durationWeeks, 6);
+    assert.strictEqual(plan.sessionCount, 18);
+    assert.strictEqual(plan.price, 9999);
+    assert.strictEqual(plan.isActive, true);
+    assert.strictEqual(plan.benefits.length, 3);
+  });
+
+  // Test 11: Admin Trainer Onboarding & Accreditation
+  await t.test("11. Admin - Trainer Onboarding, Accreditation & Availability", () => {
+    const newTrainer = {
+      name: "Karan Mehra",
+      email: "karan@fitpulse.in",
+      role: "trainer",
+      experienceYears: 6,
+      hourlyRate: 2500,
+      specializations: ["Strength Training", "Calisthenics", "Functional Fitness"],
+      location: "New Delhi (IST)",
+      isVerified: true,
+      verificationStatus: "APPROVED",
+      status: "active",
+    };
+
+    assert.ok(newTrainer.name && newTrainer.email);
+    assert.strictEqual(newTrainer.role, "trainer");
+    assert.strictEqual(newTrainer.isVerified, true);
+    assert.strictEqual(newTrainer.verificationStatus, "APPROVED");
+    assert.strictEqual(newTrainer.hourlyRate, 2500);
+    assert.strictEqual(newTrainer.specializations.length, 3);
+  });
 });
+

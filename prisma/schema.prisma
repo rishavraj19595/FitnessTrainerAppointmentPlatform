@@ -447,3 +447,4 @@ model AuditLog {
   @@index([adminId])
   @@index([action])
 }
+

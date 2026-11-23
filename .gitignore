@@ -30,6 +30,9 @@ yarn-error.log*
 # Local Database Files
 .fitpulse_*.json
 
+# Netlify
+.netlify/
+
 # Vercel
 .vercel
 
